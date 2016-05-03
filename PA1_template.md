@@ -1,0 +1,166 @@
+# RepDataProject_1
+CW  
+April 25, 2016  
+opts_chunk$set(echo=TRUE)
+
+**Load andlibrarys** 
+
+```r
+library(imputeMissings)
+```
+
+```
+## Warning: package 'imputeMissings' was built under R version 3.2.5
+```
+
+```r
+library(ggplot2)
+```
+
+```
+## Warning: package 'ggplot2' was built under R version 3.2.4
+```
+
+**Loading data from csv**
+
+```r
+dat <- read.csv("activity.csv")
+# Convert date strings to date numbers, 2012-10-01
+dat$date     <- as.Date(dat$date)
+dat$interval <- 60*floor((dat$interval+1)/100) + (dat$interval %% 100)
+```
+
+**Find the mean number of stpes taken per day**
+
+```r
+# --- Calculate the total number of steps taken per day ---
+TotStepPerDay   <- tapply(dat$steps, dat$date, sum, na.rm=T)
+avgSteps        <- mean(TotStepPerDay)
+medianSteps     <- median(TotStepPerDay)
+hist(TotStepPerDay, 
+    breaks = 20, 
+    xlab = "Steps per day",
+    main = "Total steps per day.")
+abline(v = avgSteps, col="red", lwd=3)
+abline(v = medianSteps, col="blue", lwd=3)
+legend(x = "topright", legend=c("mean","median"), col=c("red","blue"), bty="n", lwd=3)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-3-1.png)
+
+```r
+# mean/median of total steps per day
+print( paste0("mean steps per day: ",     round(mean(TotStepPerDay, na.rm=TRUE) ), 
+              "; median steps per day: ", median(TotStepPerDay, na.rm=TRUE) ) )
+```
+
+```
+## [1] "mean steps per day: 9354; median steps per day: 10395"
+```
+
+
+**What is the average daily activity pattern?**
+
+```r
+# plot average of 5min over all days
+avgStepsInBucket <- tapply(dat$steps, dat$interval, FUN=mean, na.rm=TRUE)
+
+plot(avgStepsInBucket, type = "l",
+     main = "Average number of steps within each 5 min bucket.", 
+     xlab = "Time of day bucket, 5min steps")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-4-1.png)
+
+```r
+# bucket with highest average number of steps
+print( paste0("Largest average 5 minute interval: ", which.max(avgStepsInBucket)))
+```
+
+```
+## [1] "Largest average 5 minute interval: 104"
+```
+
+**Imputing missing values, replot histogram of total steps per day**
+
+```r
+# Find total number of rows with missing data
+icomp <- complete.cases(dat)
+iNA <- !icomp
+print(paste0("Number of missing cases: ", sum(iNA) ))
+```
+
+```
+## [1] "Number of missing cases: 2304"
+```
+
+```r
+# Subsitute average step count for NA points
+datClean <- transform(dat, steps=ifelse(is.na(steps), avgStepsInBucket, steps))
+
+tot_impSteps    <- tapply(datClean$steps, datClean$date, sum, na.rm=T)
+avgStepsImp     <- round(mean(tot_impSteps))
+medianStepsImp  <- round(median(tot_impSteps))
+hist(tot_impSteps, breaks = 11, 
+    main = "Total steps per day-missing data imputed")
+abline(v = avgStepsImp, col="red", lwd=3)
+abline(v = medianStepsImp, col="blue", lwd=3, lty=2)
+legend(x = "topright", legend=c("mean","median"), col=c("red","blue"), bty="n", lwd=3)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-5-1.png)
+
+```r
+print( paste0("Chnage in mean after filling in NA values: " , avgStepsImp - avgSteps) )
+```
+
+```
+## [1] "Chnage in mean after filling in NA values: 1411.77049180328"
+```
+
+```r
+print( paste0("Chnage in median after filling in NA values: " , medianStepsImp - medianSteps) )
+```
+
+```
+## [1] "Chnage in median after filling in NA values: 371"
+```
+
+```r
+print( paste0("With removal of NA values total number of steps changed from: ", sum(dat$steps, na.rm = TRUE), " to: ", round(sum(datClean$steps)) ) )
+```
+
+```
+## [1] "With removal of NA values total number of steps changed from: 570608 to: 656738"
+```
+
+** Are there differences in activity patterns between weekdays and weekends? **
+
+```r
+# Make factor var for weekend/weekeday 
+datClean$week <- factor( weekdays(datClean$date) %in% c("Sunday", "Saturday"), 
+                         labels = c("weekday", "weekend"), 
+                         ordered = FALSE)
+
+# Find mean by weekday/weekend and by interval
+WeekMean <- aggregate( datClean$steps, 
+        by = list(interval = datClean$interval, weekday = datClean$week) , 
+            mean )
+colnames(WeekMean)[3] <- "meanVec" # rename dataframe term
+
+# Prepair plots of weekday vs weekend
+g <- ggplot(WeekMean , aes(interval/60, meanVec))
+g <- g + geom_line() + facet_grid(weekday ~ .) +
+    theme_bw() +
+    labs(y="Average step count by 5min intervals") +
+    labs(x="Time (hr)") +
+    labs(title="Walking pattern by weekday/weekend days.")
+print(g)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-6-1.png)
+
+
+
+
+
